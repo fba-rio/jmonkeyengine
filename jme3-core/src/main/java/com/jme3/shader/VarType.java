@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 jMonkeyEngine
+ * Copyright (c) 2009-2025 jMonkeyEngine
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -43,9 +43,13 @@ import com.jme3.texture.Texture2D;
 import com.jme3.texture.Texture3D;
 import com.jme3.texture.TextureArray;
 import com.jme3.texture.TextureCubeMap;
+import com.jme3.texture.TextureImage;
 
+/**
+ * Enum representing various GLSL variable types and their corresponding Java types.
+ */
 public enum VarType {
-
+    
     Float("float", float.class, Float.class),
     Vector2("vec2", Vector2f.class),
     Vector3("vec3", Vector3f.class),
@@ -56,8 +60,9 @@ public enum VarType {
     Vector2Array(true, false, "vec2", Vector2f[].class),
     Vector3Array(true, false, "vec3", Vector3f[].class),
     Vector4Array(true, false, "vec4", Vector4f[].class),
-
-    Boolean("bool", Boolean.class, boolean.class),
+    
+    Int("int", int.class, Integer.class),
+    Boolean("bool", boolean.class, Boolean.class),
 
     Matrix3(true, false, "mat3", Matrix3f.class),
     Matrix4(true, false, "mat4", Matrix4f.class),
@@ -70,15 +75,25 @@ public enum VarType {
     Texture3D(false, true, "sampler3D", Texture3D.class, Texture.class),
     TextureArray(false, true, "sampler2DArray|sampler2DArrayShadow", TextureArray.class, Texture.class),
     TextureCubeMap(false, true, "samplerCube", TextureCubeMap.class, Texture.class),
-    Int("int", int.class, Integer.class),
+    
+    Image2D(false, false, true, "image2D", TextureImage.class),
+    Image3D(false, false, true, "image3D", TextureImage.class),
+    
     UniformBufferObject(false, false, "custom", BufferObject.class),
     ShaderStorageBufferObject(false, false, "custom", BufferObject.class);
 
     private boolean usesMultiData = false;
     private boolean textureType = false;
+    private boolean imageType = false;
     private final String glslType;
-    private Class<?>[] javaTypes;
+    private final Class<?>[] javaTypes;
 
+    /**
+     * Constructs a VarType with the specified GLSL type and corresponding Java types.
+     *
+     * @param glslType  the GLSL type name(s)
+     * @param javaTypes the Java classes mapped to this GLSL type
+     */
     VarType(String glslType, Class<?>... javaTypes) {
         this.glslType = glslType;
         if (javaTypes != null) {
@@ -88,6 +103,14 @@ public enum VarType {
         }
     }
 
+    /**
+     * Constructs a VarType with additional flags for multi-data and texture types.
+     *
+     * @param multiData   true if this type uses multiple data elements (e.g. arrays, matrices)
+     * @param textureType true if this type represents a texture sampler
+     * @param glslType    the GLSL type name(s)
+     * @param javaTypes   the Java classes mapped to this GLSL type
+     */
     VarType(boolean multiData, boolean textureType, String glslType, Class<?>... javaTypes) {
         this.usesMultiData = multiData;
         this.textureType = textureType;
@@ -97,6 +120,20 @@ public enum VarType {
         } else {
             this.javaTypes = new Class<?>[0];
         }
+    }
+
+    /**
+     * Constructs a VarType with flags for multi-data, texture, and image types.
+     *
+     * @param multiData   true if this type uses multiple data elements
+     * @param textureType true if this type represents a texture sampler
+     * @param imageType   true if this type represents an image
+     * @param glslType    the GLSL type name(s)
+     * @param javaTypes   the Java classes mapped to this GLSL type
+     */
+    VarType(boolean multiData, boolean textureType, boolean imageType, String glslType, Class<?>... javaTypes) {
+        this(multiData, textureType, glslType, javaTypes);
+        this.imageType = imageType;
     }
 
     /**
@@ -116,21 +153,45 @@ public enum VarType {
 
     /**
      * Get the java types mapped to this VarType
-     * 
+     *
      * @return an array of classes mapped to this VarType
      */
     public Class<?>[] getJavaType() {
         return javaTypes;
     }
 
+    /**
+     * Returns whether this VarType represents a texture sampler type.
+     *
+     * @return true if this is a texture type, false otherwise
+     */
     public boolean isTextureType() {
         return textureType;
     }
 
+    /**
+     * Returns whether this VarType represents an image type.
+     *
+     * @return true if this is an image type, false otherwise
+     */
+    public boolean isImageType() {
+        return imageType;
+    }
+
+    /**
+     * Returns whether this VarType uses multiple data elements (e.g. arrays or matrices).
+     *
+     * @return true if this type uses multiple data elements, false otherwise
+     */
     public boolean usesMultiData() {
         return usesMultiData;
     }
 
+    /**
+     * Returns the GLSL type name(s) associated with this VarType.
+     *
+     * @return the GLSL type string (e.g. "float", "vec3", "sampler2D")
+     */
     public String getGlslType() {
         return glslType;
     }

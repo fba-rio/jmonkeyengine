@@ -61,6 +61,7 @@ import com.jme3.texture.Texture;
 import com.jme3.texture.Texture2D;
 import com.jme3.texture.Texture.ShadowCompareMode;
 import com.jme3.texture.Texture.WrapAxis;
+import com.jme3.texture.TextureImage;
 import com.jme3.texture.image.LastTextureState;
 import com.jme3.util.BufferUtils;
 import com.jme3.util.ListMap;
@@ -515,7 +516,9 @@ public final class GLRenderer implements Renderer {
                 limits.put(Limits.FrameBufferSamples, getInteger(GLExt.GL_MAX_SAMPLES_EXT));
             }
 
-            if (hasExtension("GL_ARB_texture_multisample") || caps.contains(Caps.OpenGLES31)) { // GLES31 does not fully support it
+            if (hasExtension("GL_ARB_texture_multisample") || caps.contains(Caps.OpenGLES31)
+                    || (JmeSystem.getPlatform().getOs() == Platform.Os.MacOS
+                            && caps.contains(Caps.OpenGL32))) { // GLES31 does not fully support it
                 caps.add(Caps.TextureMultisample);
                 limits.put(Limits.ColorTextureSamples, getInteger(GLExt.GL_MAX_COLOR_TEXTURE_SAMPLES));
                 limits.put(Limits.DepthTextureSamples, getInteger(GLExt.GL_MAX_DEPTH_TEXTURE_SAMPLES));
@@ -2752,7 +2755,20 @@ public final class GLRenderer implements Renderer {
             if (tex.getName() != null) glext.glObjectLabel(GL.GL_TEXTURE, tex.getImage().getId(), tex.getName());
         }
     }
-
+    
+    @Override
+    public void setTextureImage(int unit, TextureImage tex) throws TextureUnitException {
+        if (unit < 0 || unit >= RenderContext.maxTextureUnits) {
+            throw new TextureUnitException();
+        }
+        WeakReference<Image> ref = context.boundTextures[unit];
+        boolean bindRequired = tex.clearUpdateNeeded() || ref == null || ref.get() != tex.getImage().getWeakRef().get();
+        setTexture(unit, tex.getTexture());
+        if (gl4 != null && bindRequired) {
+            tex.bindImage(gl4, texUtil, unit);
+        }
+    }
+    
     @Override
     public void setUniformBufferObject(int bindingPoint, BufferObject bufferObject) {
         if (bufferObject.isUpdateNeeded()) {

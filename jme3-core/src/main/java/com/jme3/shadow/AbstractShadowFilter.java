@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009-2024 jMonkeyEngine
+ * Copyright (c) 2009-2025 jMonkeyEngine
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,10 +32,6 @@
 package com.jme3.shadow;
 
 import com.jme3.asset.AssetManager;
-import com.jme3.export.InputCapsule;
-import com.jme3.export.JmeExporter;
-import com.jme3.export.JmeImporter;
-import com.jme3.export.OutputCapsule;
 import com.jme3.material.Material;
 import com.jme3.material.RenderState;
 import com.jme3.math.Matrix4f;
@@ -45,45 +41,41 @@ import com.jme3.renderer.RenderManager;
 import com.jme3.renderer.ViewPort;
 import com.jme3.renderer.queue.RenderQueue;
 import com.jme3.texture.FrameBuffer;
+import com.jme3.util.TempVars;
 import com.jme3.util.clone.Cloner;
 import com.jme3.util.clone.JmeCloneable;
 
-import java.io.IOException;
-
 /**
- *
  * Generic abstract filter that holds common implementations for the different
  * shadow filters
  *
  * @author Rémy Bouquet aka Nehon
  */
-public abstract class AbstractShadowFilter<T extends AbstractShadowRenderer> extends Filter implements Cloneable, JmeCloneable {
+public abstract class AbstractShadowFilter<T extends AbstractShadowRenderer> extends Filter implements JmeCloneable {
 
     protected T shadowRenderer;
     protected ViewPort viewPort;
 
-    /**
-     * used for serialization
-     */
-    protected AbstractShadowFilter(){
-    }
-    
-    /**
-     * Abstract class constructor
-     *
-     * @param manager the application asset manager
-     * @param shadowMapSize the size of the rendered shadowmaps (512,1024,2048,
-     * etc...)
-     * @param shadowRenderer the shadowRenderer to use for this Filter
-     */
-    @SuppressWarnings("all")
-    protected AbstractShadowFilter(AssetManager manager, int shadowMapSize, T shadowRenderer) {
-        super("Post Shadow");
-        material = new Material(manager, "Common/MatDefs/Shadow/PostShadowFilter.j3md");       
-        this.shadowRenderer = shadowRenderer;
-        this.shadowRenderer.setPostShadowMaterial(material);
+    private final Vector4f tempVec4 = new Vector4f();
+    private final Matrix4f tempMat4 = new Matrix4f();
 
-        //this is legacy setting for shadows with backface shadows
+    /**
+     * For serialization only. Do not use.
+     */
+    protected AbstractShadowFilter() {
+    }
+
+    /**
+     * Creates an AbstractShadowFilter. Subclasses invoke this constructor.
+     *
+     * @param assetManager The application's asset manager.
+     * @param shadowMapSize The size of the rendered shadow maps (e.g., 512, 1024, 2048).
+     * @param shadowRenderer The shadowRenderer to use for this Filter
+     */
+    protected AbstractShadowFilter(AssetManager assetManager, int shadowMapSize, T shadowRenderer) {
+        super("Post Shadow");
+        this.shadowRenderer = shadowRenderer;
+        // this is legacy setting for shadows with backface shadows
         this.shadowRenderer.setRenderBackFacesShadows(true);
     }
 
@@ -97,31 +89,35 @@ public abstract class AbstractShadowFilter<T extends AbstractShadowRenderer> ext
         return true;
     }
 
+    /**
+     * @deprecated Use {@link #getMaterial()} instead.
+     * @return The Material used by this filter.
+     */
+    @Deprecated
     public Material getShadowMaterial() {       
         return material;
     }
-    Vector4f tmpv = new Vector4f();
 
     @Override
     protected void preFrame(float tpf) {
         shadowRenderer.preFrame(tpf);
-        material.setMatrix4("ViewProjectionMatrixInverse", viewPort.getCamera().getViewProjectionMatrix().invert());
         Matrix4f m = viewPort.getCamera().getViewProjectionMatrix();
-        material.setVector4("ViewProjectionMatrixRow2", tmpv.set(m.m20, m.m21, m.m22, m.m23));
+        material.setMatrix4("ViewProjectionMatrixInverse", tempMat4.set(m).invertLocal());
+        material.setVector4("ViewProjectionMatrixRow2", tempVec4.set(m.m20, m.m21, m.m22, m.m23));
     }
 
     @Override
     protected void postQueue(RenderQueue queue) {
         shadowRenderer.postQueue(queue);
-         if(shadowRenderer.skipPostPass){
-             //removing the shadow map so that the post pass is skipped
-             material.setTexture("ShadowMap0", null);
-         }
+        if (shadowRenderer.skipPostPass) {
+            // removing the shadow map so that the post pass is skipped
+            material.setTexture("ShadowMap0", null);
+        }
     }
 
     @Override
     protected void postFrame(RenderManager renderManager, ViewPort viewPort, FrameBuffer prevFilterBuffer, FrameBuffer sceneBuffer) {
-        if(!shadowRenderer.skipPostPass){
+        if (!shadowRenderer.skipPostPass) {
             shadowRenderer.setPostShadowParams();
         }
     }
@@ -129,15 +125,17 @@ public abstract class AbstractShadowFilter<T extends AbstractShadowRenderer> ext
     @Override
     protected void initFilter(AssetManager manager, RenderManager renderManager, ViewPort vp, int w, int h) {
         shadowRenderer.needsfallBackMaterial = true;
+        material = new Material(manager, "Common/MatDefs/Shadow/PostShadowFilter.j3md");
+        shadowRenderer.setPostShadowMaterial(material);
         shadowRenderer.initialize(renderManager, vp);
         this.viewPort = vp;
     }
-    
-      /**
+
+    /**
      * How far the shadows are rendered in the view
      *
-     * @see #setShadowZExtend(float zFar)
      * @return shadowZExtend
+     * @see #setShadowZExtend(float zFar)
      */
     public float getShadowZExtend() {
         return shadowRenderer.getShadowZExtend();
@@ -338,15 +336,4 @@ public abstract class AbstractShadowFilter<T extends AbstractShadowRenderer> ext
         shadowRenderer.setPostShadowMaterial(material);
     }
 
-    @Override
-    public void write(JmeExporter ex) throws IOException {
-        super.write(ex);
-        OutputCapsule oc = ex.getCapsule(this);
-    }
-
-    @Override
-    public void read(JmeImporter im) throws IOException {
-        super.read(im);
-        InputCapsule ic = im.getCapsule(this);
-    }
 }
